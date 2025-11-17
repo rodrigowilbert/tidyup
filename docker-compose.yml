@@ -1,0 +1,78 @@
+version: "3.8"
+
+services:
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: tidup-app-php
+    restart: unless-stopped
+    volumes:
+      - ./backend:/var/www/html
+    networks:
+      - api-network
+    depends_on:
+      - db
+      - redis
+
+  angular:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: tidup-app-angular
+    restart: unless-stopped
+    volumes:
+      - ./frontend:/usr/src/tidyup
+      - /usr/src/tidyup/node_modules
+    ports:
+      - "4200:4200"
+    command: sh -c "npm install && ng serve --host 0.0.0.0"
+    networks:
+      - api-network
+
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: tidup-app-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./backend:/var/www/html
+      - ./nginx/conf.d:/etc/nginx/conf.d
+    networks:
+      - api-network
+    depends_on:
+      - api
+
+  db:
+    image: mysql:8.0
+    container_name: tidup-app-db
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: api
+      MYSQL_USER: api_user
+      MYSQL_PASSWORD: 123
+      MYSQL_ROOT_PASSWORD: 123
+    ports:
+      - "3306:3306"
+    volumes:
+      - dbdata:/var/lib/mysql
+    networks:
+      - api-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: tidup-app-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    networks:
+      - api-network
+
+networks:
+  api-network:
+    driver: bridge
+
+volumes:
+  dbdata:
+    driver: local
